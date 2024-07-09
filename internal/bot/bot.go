@@ -1,16 +1,28 @@
 package bot
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
-	"gopkg.in/telebot.v3"
 	tele "gopkg.in/telebot.v3"
 )
 
+var userNumbers map[int64]int
+var httpClient *http.Client
+
 type Bot struct {
 	token string
+}
+
+func init() {
+	httpClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
+	userNumbers = make(map[int64]int, 15)
 }
 
 func NewBot(token string) *Bot {
@@ -27,27 +39,10 @@ func (b *Bot) Start() {
 		panic(err)
 	}
 
-	userNumbers := make(map[int64]int)
+	bot.Handle("/start", b.handleStartLogic)
 
-	bot.Handle("/start", func(c tele.Context) error {
-		buttons := []telebot.Btn{
-			tele.Btn{Text: "1", Data: "1"}, tele.Btn{Text: "2", Data: "2"}, tele.Btn{Text: "3", Data: "3"},
-		}
-		menu := &tele.ReplyMarkup{}
-		menu.Inline(
-			menu.Row(buttons...),
-		)
-		// btn1 := menu.Text("1")
-		// btn2 := menu.Text("2")
-		return c.Send("Добро пожаловать выберите группу", menu)
-	})
-
-	// bot.Handle(&btnHelp, func(c tele.Context) error {
-	// 	return c.Send("Got it")
-	// })
-
-	// On inline button pressed (callback)
-	bot.Handle(telebot.OnCallback, func(c telebot.Context) error {
+	// Handles group select
+	bot.Handle(tele.OnCallback, func(c tele.Context) error {
 		// Get the callback data and parse it as an integer.
 		fmt.Println("in callback")
 		callbackData := c.Callback().Data
@@ -63,7 +58,7 @@ func (b *Bot) Start() {
 		return c.Send(fmt.Sprintf("You selected the number %d", number))
 	})
 
-	bot.Handle(telebot.OnText, func(c telebot.Context) error {
+	bot.Handle(tele.OnText, func(c tele.Context) error {
 		// Get the user's selected number from the map.
 		number, ok := userNumbers[c.Sender().ID]
 		if !ok {
@@ -77,15 +72,63 @@ func (b *Bot) Start() {
 	bot.Start()
 }
 
-func (b *Bot) handleStartLogin(c tele.Context) error {
-	buttons := []telebot.Btn{
-		tele.Btn{Text: "1", Data: "1"}, tele.Btn{Text: "2", Data: "2"}, tele.Btn{Text: "3", Data: "3"},
+func (b *Bot) handleStartLogic(c tele.Context) error {
+	type wrapper struct {
+		result []GroupDataReq
+		err    error
 	}
-	menu := &tele.ReplyMarkup{}
-	menu.Inline(
-		menu.Row(buttons...),
-	)
-	// btn1 := menu.Text("1")
-	// btn2 := menu.Text("2")
-	return c.Send("Добро пожаловать выберите группу", menu)
+	ch := make(chan wrapper, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+	defer cancel()
+
+	go func() {
+		result, err := requestGroupsWithContext(ctx)
+		ch <- wrapper{result, err}
+	}()
+
+	select {
+	case data := <-ch:
+		str := data.result[0].Name + "-" + data.result[0].Course
+		buttons := []tele.Btn{
+			{Text: str, Data: "1"}, {Text: "2", Data: "2"}, {Text: "3", Data: "3"},
+		}
+		menu := &tele.ReplyMarkup{}
+		menu.Inline(
+			menu.Row(buttons...),
+		)
+		return c.Send("Добро пожаловать выберите группу", menu)
+	case <-ctx.Done():
+		return c.Send("Что то пошло не так")
+	}
+}
+
+func requestGroupsWithContext(ctx context.Context) ([]GroupDataReq, error) {
+	req, err := http.NewRequestWithContext(ctx,
+		http.MethodGet, "http://localhost:8000/schedule/", nil)
+	if err != nil {
+		panic(err)
+	}
+
+	res, err := httpClient.Do(req)
+	var data []GroupDataReq
+	if err != nil {
+		return data, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code %d", res.StatusCode)
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&data)
+	if err != nil {
+		return data, err
+	}
+
+	return data, nil
+}
+
+type GroupDataReq struct {
+	Course string `json:"course"`
+	Name   string `json:"name"`
 }
