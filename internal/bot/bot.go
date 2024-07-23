@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/Clankyyy/scheduler-bot/internal/markup"
@@ -35,8 +36,6 @@ func (b *Bot) Start() {
 
 	// menus, buttons, etc..
 	mainMenu := &tele.ReplyMarkup{ResizeKeyboard: true}
-
-	// Reply buttons.
 	btnHelp := mainMenu.Text("ℹ Help")
 	btnSettings := mainMenu.Text("⚙ Settings")
 	mainMenu.Reply(
@@ -75,6 +74,7 @@ func (b *Bot) handleGetSchedule(c tele.Context) error {
 func (b *Bot) handleStartLogic(c tele.Context) error {
 	groups, err := schedule.GetGroups()
 	if err != nil {
+		log.Print(err)
 		return c.Send("Сервис недоступен, пожалуйста попробуйте позже")
 	}
 	groupButtons := markup.GroupList(groups)

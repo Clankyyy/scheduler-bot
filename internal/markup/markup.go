@@ -5,11 +5,10 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
-func GroupList(groups []entity.GroupDataReq) *tele.ReplyMarkup {
-	buttons := make([]tele.Btn, 0, len(groups))
-	for _, g := range groups {
-		data := g.Course + "-" + g.Name
-		buttons = append(buttons, tele.Btn{Text: data, Data: data})
+func GroupList(groups entity.GroupsRes) *tele.ReplyMarkup {
+	buttons := make([]tele.Btn, 0, len(groups.Data))
+	for _, g := range groups.Data {
+		buttons = append(buttons, tele.Btn{Text: g, Data: g})
 	}
 	menu := &tele.ReplyMarkup{}
 	menu.Inline(menu.Split(3, buttons)...)
