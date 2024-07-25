@@ -1,8 +1,10 @@
 package entity
 
 import (
-	"encoding/json"
-	"fmt"
+	"errors"
+	"strings"
+
+	tele "gopkg.in/telebot.v3"
 )
 
 type GroupsRes struct {
@@ -14,67 +16,86 @@ type Subject struct {
 	Name      string `json:"name"`
 	Teacher   string `json:"teacher"`
 	Classroom string `json:"classroom"`
-	Kind      string `json:"kind"`
+	Kind      Kind   `json:"kind"`
 }
 
-func (s *Subject) parseKind() error {
-	switch s.Kind {
-	case "lecture":
-		s.Kind = "Лекция"
-		return nil
-	case "practice":
-		s.Kind = "Практика"
+type Kind string
+
+func (k *Kind) UnmarshalJSON(data []byte) error {
+	str := strings.Trim(string(data), "\"")
+	if str == "null" || str == "" {
 		return nil
 	}
-	return fmt.Errorf("bad format")
+
+	switch str {
+	case "lecture":
+		{
+			*k = "Лекция"
+			return nil
+		}
+	case "practice":
+		{
+			*k = "Практика"
+			return nil
+		}
+	}
+	return errors.New("cant unmarshal to kind type")
 }
 
 type Daily struct {
-	Schedule []Subject
-	Weekday  string
+	Schedule []Subject `json:"daily_schedule"`
+	Weekday  Weekday   `json:"weekday"`
 }
 
-func (d *Daily) UnmarshalJSON(data []byte) error {
-	var daily string
-	if err := json.Unmarshal(data, &daily); err != nil {
-		return err
+type Weekday string
+
+func (w *Weekday) UnmarshalJSON(data []byte) error {
+	str := strings.Trim(string(data), "\"")
+	if str == "null" || str == "" {
+		return nil
 	}
 
-	if err := d.parse(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (d *Daily) parse() error {
-	return d.parseWeekday()
-}
-
-func (d *Daily) parseWeekday() error {
-	switch d.Weekday {
+	switch str {
 
 	case "monday":
-		d.Weekday = "Понедельник"
-		return nil
+		{
+			*w = "Понедельник"
+			return nil
+		}
 	case "tuesday":
-		d.Weekday = "Вторник"
-		return nil
+		{
+			*w = "Вторник"
+			return nil
+		}
 	case "wednesday":
-		d.Weekday = "Среда"
-		return nil
+		{
+			*w = "Среда"
+			return nil
+		}
 	case "thursday":
-		d.Weekday = "Четверг"
-		return nil
+		{
+			*w = "Четверг"
+			return nil
+		}
 	case "friday":
-		d.Weekday = "Пятница"
-		return nil
+		{
+			*w = "Пятница"
+			return nil
+		}
 	case "saturday":
-		d.Weekday = "Суббота"
-		return nil
+		{
+			*w = "Суббота"
+			return nil
+		}
 	case "sunday":
-		d.Weekday = "Воскресенье"
-		return nil
+		{
+			*w = "Воскресенье"
+			return nil
+		}
 	}
-	return fmt.Errorf("bad format")
+	return errors.New("bad format")
+}
+
+func (d *Daily) Send(b *tele.Bot, r tele.Recipient, pref *tele.SendOptions) (*tele.Message, error) {
+	return b.Send(r, string(d.Weekday), pref)
 }

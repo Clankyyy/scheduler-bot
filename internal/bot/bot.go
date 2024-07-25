@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/Clankyyy/scheduler-bot/internal/markup"
@@ -43,7 +44,7 @@ func (b *Bot) Start() {
 		mainMenu.Row(btnSettings),
 	)
 
-	bot.Handle("/start", b.handleStartLogic)
+	bot.Handle("/start", b.handleStart)
 
 	// Handles group select
 	bot.Handle(tele.OnCallback, func(c tele.Context) error {
@@ -55,8 +56,7 @@ func (b *Bot) Start() {
 		return c.Send(fmt.Sprintf("Вы выбрали группу %s", selectedGroup), mainMenu)
 	})
 
-	//bot.Handle(&btnHelp)
-
+	bot.Handle(&btnHelp, b.handleGetDaily)
 	bot.Handle(tele.OnText, b.handleGetSchedule)
 
 	bot.Start()
@@ -71,7 +71,19 @@ func (b *Bot) handleGetSchedule(c tele.Context) error {
 	return c.Send(fmt.Sprintf("Ваша группа: %s", group))
 }
 
-func (b *Bot) handleStartLogic(c tele.Context) error {
+func (b *Bot) handleGetDaily(c tele.Context) error {
+	daily, err := schedule.GetDaily("2-4306", "monday", "even")
+	if err != nil {
+		log.Print(err.Error())
+		return c.Send("АШИБКА")
+	}
+
+	// log.Print(daily)
+
+	return c.Send(&daily)
+}
+
+func (b *Bot) handleStart(c tele.Context) error {
 	groups, err := schedule.GetGroups()
 	if err != nil {
 		log.Print(err)
@@ -79,4 +91,13 @@ func (b *Bot) handleStartLogic(c tele.Context) error {
 	}
 	groupButtons := markup.GroupList(groups)
 	return c.Send("Выбирете группу", groupButtons)
+}
+
+type Test struct {
+	num int
+}
+
+func (t *Test) Send(b *tele.Bot, r tele.Recipient, opts *tele.SendOptions) (*tele.Message, error) {
+	str := strconv.Itoa(t.num)
+	return b.Send(r, str)
 }
