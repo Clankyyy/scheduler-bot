@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Clankyyy/scheduler-bot/internal/current"
 	"github.com/Clankyyy/scheduler-bot/internal/markup"
 	"github.com/Clankyyy/scheduler-bot/internal/schedule"
 	tele "gopkg.in/telebot.v3"
@@ -14,15 +15,19 @@ import (
 var userNumbers map[int64]string
 
 type Bot struct {
-	token string
+	token   string
+	current current.Currenter
 }
 
 func init() {
 	userNumbers = make(map[int64]string, 15)
 }
 
-func NewBot(token string) *Bot {
-	return &Bot{token: token}
+func NewBot(token string, current current.Currenter) *Bot {
+	return &Bot{
+		token:   token,
+		current: current,
+	}
 }
 
 func (b *Bot) Start() {
@@ -72,7 +77,8 @@ func (b *Bot) handleGetSchedule(c tele.Context) error {
 }
 
 func (b *Bot) handleGetDaily(c tele.Context) error {
-	daily, err := schedule.GetDaily("2-4306", "monday", "even")
+	day, weekType := b.current.Now()
+	daily, err := schedule.GetDaily("2-4306", day, weekType)
 	if err != nil {
 		log.Print(err.Error())
 		return c.Send("АШИБКА")
