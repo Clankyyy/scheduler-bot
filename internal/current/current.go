@@ -1,6 +1,7 @@
 package current
 
 import (
+	"log"
 	"strings"
 	"time"
 )
@@ -18,6 +19,8 @@ func NewOSCurrenter(shiftWeek bool) *OSCurrenter {
 		shiftWeek: shiftWeek,
 	}
 
+	day, kind := osc.Now()
+	log.Printf("Currenter starts with day:%s, week kind: %s", day, kind)
 	return &osc
 }
 
