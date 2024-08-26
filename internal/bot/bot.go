@@ -3,30 +3,26 @@ package bot
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
 	"github.com/Clankyyy/scheduler-bot/internal/current"
 	"github.com/Clankyyy/scheduler-bot/internal/markup"
 	"github.com/Clankyyy/scheduler-bot/internal/schedule"
+	"github.com/Clankyyy/scheduler-bot/internal/storage"
 	tele "gopkg.in/telebot.v3"
 )
-
-var userNumbers map[int64]string
 
 type Bot struct {
 	token   string
 	current current.Currenter
+	storage storage.Storager
 }
 
-func init() {
-	userNumbers = make(map[int64]string, 15)
-}
-
-func NewBot(token string, current current.Currenter) *Bot {
+func NewBot(token string, current current.Currenter, storage storage.Storager) *Bot {
 	return &Bot{
 		token:   token,
 		current: current,
+		storage: storage,
 	}
 }
 
@@ -42,22 +38,23 @@ func (b *Bot) Start() {
 
 	// menus, buttons, etc..
 	mainMenu := &tele.ReplyMarkup{ResizeKeyboard: true}
-	btnHelp := mainMenu.Text("ℹ Help")
-	btnSettings := mainMenu.Text("⚙ Settings")
+	btnHelp := mainMenu.Text("ℹ Расписание на день")
+	//btnSettings := mainMenu.Text("⚙ Settings")
 	mainMenu.Reply(
 		mainMenu.Row(btnHelp),
-		mainMenu.Row(btnSettings),
+		//mainMenu.Row(btnSettings),
 	)
 
 	bot.Handle("/start", b.handleStart)
 
 	// Handles group select
 	bot.Handle(tele.OnCallback, func(c tele.Context) error {
-
 		selectedGroup := c.Callback().Data
-		userNumbers[c.Sender().ID] = selectedGroup
-
-		// Send a confirmation message to the user.
+		err := b.storage.AddUser(c.Sender().ID, selectedGroup)
+		if err != nil {
+			log.Println("Error during AddUser", err.Error())
+			return c.Send("Произошла ошибка при регистрации, пожалуйста попробуйте позже")
+		}
 		return c.Send(fmt.Sprintf("Вы выбрали группу %s", selectedGroup), mainMenu)
 	})
 
@@ -68,8 +65,8 @@ func (b *Bot) Start() {
 }
 
 func (b *Bot) handleGetSchedule(c tele.Context) error {
-	group, ok := userNumbers[c.Sender().ID]
-	if !ok {
+	group, err := b.storage.GetSlug(c.Sender().ID)
+	if err != nil {
 		return c.Send("Пожалуйста, сначала выберете группу")
 	}
 
@@ -77,10 +74,15 @@ func (b *Bot) handleGetSchedule(c tele.Context) error {
 }
 
 func (b *Bot) handleGetDaily(c tele.Context) error {
-	day, weekType := b.current.Now()
-	daily, err := schedule.GetDaily("2-4306", day, weekType)
+	_, weekType := b.current.Now()
+	slug, err := b.storage.GetSlug(c.Sender().ID)
 	if err != nil {
-		log.Print(err.Error())
+		log.Println("Cant read slug from db:", err.Error())
+		return c.Send("Расписание для вас в данный момент недоступно, вероятно вы не выбрали группу")
+	}
+	daily, err := schedule.GetDaily(slug, "monday", weekType)
+	if err != nil {
+		log.Println("Cant get daily from backend: ", err.Error())
 		return c.Send("АШИБКА")
 	}
 
@@ -97,13 +99,4 @@ func (b *Bot) handleStart(c tele.Context) error {
 	}
 	groupButtons := markup.GroupList(groups)
 	return c.Send("Выбирете группу", groupButtons)
-}
-
-type Test struct {
-	num int
-}
-
-func (t *Test) Send(b *tele.Bot, r tele.Recipient, opts *tele.SendOptions) (*tele.Message, error) {
-	str := strconv.Itoa(t.num)
-	return b.Send(r, str)
 }

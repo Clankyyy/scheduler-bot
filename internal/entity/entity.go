@@ -7,6 +7,11 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
+type User struct {
+	id        int64  `db:"user_id"`
+	groupSlug string `db:"group_slug"`
+}
+
 type GroupsRes struct {
 	Data []string
 }
@@ -17,6 +22,14 @@ type Subject struct {
 	Teacher   string `json:"teacher"`
 	Classroom string `json:"classroom"`
 	Kind      Kind   `json:"kind"`
+}
+
+func (s Subject) String() string {
+	var sb strings.Builder
+	sb.WriteString("Начало: " + s.Start + "\n")
+	sb.WriteString("Предмет: " + s.Name + "\n")
+	sb.WriteString("Преподаватель: " + s.Teacher + "\n")
+	return sb.String()
 }
 
 type Kind string
@@ -45,6 +58,15 @@ func (k *Kind) UnmarshalJSON(data []byte) error {
 type Daily struct {
 	Schedule []Subject `json:"daily_schedule"`
 	Weekday  Weekday   `json:"weekday"`
+}
+
+func (d *Daily) Send(b *tele.Bot, r tele.Recipient, pref *tele.SendOptions) (*tele.Message, error) {
+	var sb strings.Builder
+	sb.WriteString("Расписание на " + strings.ToLower(string(d.Weekday)) + "\n" + "\n")
+	for _, s := range d.Schedule {
+		sb.WriteString(s.String() + "\n")
+	}
+	return b.Send(r, sb.String(), pref)
 }
 
 type Weekday string
@@ -94,8 +116,4 @@ func (w *Weekday) UnmarshalJSON(data []byte) error {
 		}
 	}
 	return errors.New("bad format")
-}
-
-func (d *Daily) Send(b *tele.Bot, r tele.Recipient, pref *tele.SendOptions) (*tele.Message, error) {
-	return b.Send(r, string(d.Weekday), pref)
 }
