@@ -60,13 +60,17 @@ type Daily struct {
 	Weekday  Weekday   `json:"weekday"`
 }
 
-func (d *Daily) Send(b *tele.Bot, r tele.Recipient, pref *tele.SendOptions) (*tele.Message, error) {
+func (d Daily) String() string {
 	var sb strings.Builder
 	sb.WriteString("Расписание на " + strings.ToLower(string(d.Weekday)) + "\n" + "\n")
 	for _, s := range d.Schedule {
 		sb.WriteString(s.String() + "\n")
 	}
-	return b.Send(r, sb.String(), pref)
+	return sb.String()
+}
+
+func (d *Daily) Send(b *tele.Bot, r tele.Recipient, pref *tele.SendOptions) (*tele.Message, error) {
+	return b.Send(r, d.String(), pref)
 }
 
 type Weekday string
