@@ -2,6 +2,7 @@ package entity
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	tele "gopkg.in/telebot.v3"
@@ -120,4 +121,22 @@ func (w *Weekday) UnmarshalJSON(data []byte) error {
 		}
 	}
 	return errors.New("bad format")
+}
+
+type Weekly struct {
+	Schedule []Daily `json:"weekly_schedule"`
+	IsEven   bool    `json:"is_even"`
+}
+
+func (w Weekly) String() string {
+	var sb strings.Builder
+	sb.WriteString("Расписание на " + strconv.FormatBool(w.IsEven) + "неделю" + "\n" + "\n")
+	for _, d := range w.Schedule {
+		sb.WriteString(d.String())
+	}
+	return sb.String()
+}
+
+func (w *Weekly) Send(b *tele.Bot, r tele.Recipient, pref *tele.SendOptions) (*tele.Message, error) {
+	return b.Send(r, w.String(), pref)
 }

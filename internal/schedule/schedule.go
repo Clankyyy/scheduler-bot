@@ -47,6 +47,32 @@ func GetDaily(slug string, day string, kind string) (entity.Daily, error) {
 	}
 }
 
+func GetWeekly(slug string, kind string) (entity.Weekly, error) {
+	type wrapper struct {
+		result entity.Weekly
+		err    error
+	}
+
+	ch := make(chan wrapper, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(1*time.Second))
+	defer cancel()
+
+	go func() {
+		result, err := requestWeeklyWithContext(ctx, slug, kind)
+		ch <- wrapper{result, err}
+	}()
+
+	select {
+	case data := <-ch:
+		if data.err != nil {
+			return entity.Weekly{}, data.err
+		}
+		return data.result, nil
+	case <-ctx.Done():
+		return entity.Weekly{}, fmt.Errorf("timeout exceeded")
+	}
+}
+
 func GetGroups() (entity.GroupsRes, error) {
 	type wrapper struct {
 		data entity.GroupsRes
@@ -71,6 +97,37 @@ func GetGroups() (entity.GroupsRes, error) {
 	case <-ctx.Done():
 		return entity.GroupsRes{}, errors.New("timeout exceeded")
 	}
+}
+
+func requestWeeklyWithContext(ctx context.Context, slug string, kind string) (entity.Weekly, error) {
+	if ctx == nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(time.Second))
+		defer cancel()
+	}
+
+	q := url.Values{}
+	q.Add("type", kind)
+	url := "http://localhost:8000/schedule/weekly/" + slug + "?"
+	res, err := requestWithContext(ctx, http.MethodGet, url, nil, q)
+
+	var data entity.Weekly
+	if err != nil {
+		return data, err
+	}
+
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return data, fmt.Errorf("unexpected status code %d", res.StatusCode)
+	}
+
+	err = json.NewDecoder(res.Body).Decode(&data)
+	if err != nil {
+		return data, err
+	}
+
+	return data, nil
 }
 
 func requestDailyWithContext(ctx context.Context, slug string, day string, kind string) (entity.Daily, error) {

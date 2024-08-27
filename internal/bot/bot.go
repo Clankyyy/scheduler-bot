@@ -38,11 +38,11 @@ func (b *Bot) Start() {
 
 	// menus, buttons, etc..
 	mainMenu := &tele.ReplyMarkup{ResizeKeyboard: true}
-	btnHelp := mainMenu.Text("ℹ Расписание на день")
-	//btnSettings := mainMenu.Text("⚙ Settings")
+	btnDaily := mainMenu.Text("ℹ Расписание на день")
+	btnWeekly := mainMenu.Text("✅ Расписание на неделю")
 	mainMenu.Reply(
-		mainMenu.Row(btnHelp),
-		//mainMenu.Row(btnSettings),
+		mainMenu.Row(btnDaily),
+		mainMenu.Row(btnWeekly),
 	)
 
 	bot.Handle("/start", b.handleStart)
@@ -58,35 +58,42 @@ func (b *Bot) Start() {
 		return c.Send(fmt.Sprintf("Вы выбрали группу %s", selectedGroup), mainMenu)
 	})
 
-	bot.Handle(&btnHelp, b.handleGetDaily)
-	bot.Handle(tele.OnText, b.handleGetSchedule)
+	bot.Handle(&btnDaily, b.handleGetDaily)
+	bot.Handle(&btnWeekly, b.handleGetWeekly)
 
 	bot.Start()
 }
 
-func (b *Bot) handleGetSchedule(c tele.Context) error {
-	group, err := b.storage.GetSlug(c.Sender().ID)
+func (b *Bot) handleGetDaily(c tele.Context) error {
+	day, weekType := b.current.Now()
+	slug, err := b.storage.GetSlug(c.Sender().ID)
 	if err != nil {
-		return c.Send("Пожалуйста, сначала выберете группу")
+		log.Println("Cant read slug from db:", err.Error())
+		return c.Send("Расписание для вас в данный момент недоступно, вероятно вы не выбрали группу")
+	}
+	daily, err := schedule.GetDaily(slug, day, weekType)
+	if err != nil {
+		log.Println("Cant get daily from backend: ", err.Error())
+		return c.Send("Произошла ошибка, попробуйте позже")
 	}
 
-	return c.Send(fmt.Sprintf("Ваша группа: %s", group))
+	// log.Print(daily)
+
+	return c.Send(&daily)
 }
 
-func (b *Bot) handleGetDaily(c tele.Context) error {
+func (b *Bot) handleGetWeekly(c tele.Context) error {
 	_, weekType := b.current.Now()
 	slug, err := b.storage.GetSlug(c.Sender().ID)
 	if err != nil {
 		log.Println("Cant read slug from db:", err.Error())
 		return c.Send("Расписание для вас в данный момент недоступно, вероятно вы не выбрали группу")
 	}
-	daily, err := schedule.GetDaily(slug, "monday", weekType)
+	daily, err := schedule.GetWeekly(slug, weekType)
 	if err != nil {
 		log.Println("Cant get daily from backend: ", err.Error())
-		return c.Send("АШИБКА")
+		return c.Send("произошла ошибка, попробуйте позже")
 	}
-
-	// log.Print(daily)
 
 	return c.Send(&daily)
 }
