@@ -2,7 +2,6 @@ package entity
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 
 	tele "gopkg.in/telebot.v3"
@@ -27,9 +26,10 @@ type Subject struct {
 
 func (s Subject) String() string {
 	var sb strings.Builder
-	sb.WriteString("Начало: " + s.Start + "\n")
-	sb.WriteString("Предмет: " + s.Name + "\n")
-	sb.WriteString("Преподаватель: " + s.Teacher + "\n")
+	sb.WriteString("🕰 *Начало:* " + s.Start + "\n")
+	sb.WriteString("🦍 Предмет: " + s.Name + "\n")
+	//sb.WriteString("Аудитория: " + s.Classroom + "\n")
+	sb.WriteString("👨‍🏫 Преподаватель: " + s.Teacher + "\n")
 	return sb.String()
 }
 
@@ -63,7 +63,7 @@ type Daily struct {
 
 func (d Daily) String() string {
 	var sb strings.Builder
-	sb.WriteString("Расписание на " + strings.ToLower(string(d.Weekday)) + "\n" + "\n")
+	sb.WriteString("🔔 Расписание на " + strings.ToLower(string(d.Weekday)) + "\n" + "\n")
 	for _, s := range d.Schedule {
 		sb.WriteString(s.String() + "\n")
 	}
@@ -71,6 +71,7 @@ func (d Daily) String() string {
 }
 
 func (d *Daily) Send(b *tele.Bot, r tele.Recipient, pref *tele.SendOptions) (*tele.Message, error) {
+	pref.ParseMode = tele.ModeMarkdownV2
 	return b.Send(r, d.String(), pref)
 }
 
@@ -130,7 +131,7 @@ type Weekly struct {
 
 func (w Weekly) String() string {
 	var sb strings.Builder
-	sb.WriteString("Расписание на " + strconv.FormatBool(w.IsEven) + "неделю" + "\n" + "\n")
+	sb.WriteString("🗓 Расписание на " + stringFromIsEven(w.IsEven) + "неделю" + "\n" + "\n")
 	for _, d := range w.Schedule {
 		sb.WriteString(d.String())
 	}
@@ -139,4 +140,11 @@ func (w Weekly) String() string {
 
 func (w *Weekly) Send(b *tele.Bot, r tele.Recipient, pref *tele.SendOptions) (*tele.Message, error) {
 	return b.Send(r, w.String(), pref)
+}
+
+func stringFromIsEven(isEven bool) string {
+	if isEven {
+		return "четную"
+	}
+	return "нечетную"
 }

@@ -38,14 +38,16 @@ func (b *Bot) Start() {
 
 	// menus, buttons, etc..
 	mainMenu := &tele.ReplyMarkup{ResizeKeyboard: true}
-	btnDaily := mainMenu.Text("ℹ Расписание на день")
+	btnDaily := mainMenu.Text("ℹ Расписание на сегодня")
+	btnNextDaily := mainMenu.Text("▶️ Расписание на завтра")
 	btnWeekly := mainMenu.Text("✅ Расписание на неделю")
 	mainMenu.Reply(
 		mainMenu.Row(btnDaily),
+		mainMenu.Row(btnNextDaily),
 		mainMenu.Row(btnWeekly),
 	)
 
-	bot.Handle("/start", b.handleStart)
+	bot.Handle("/login", b.handleStart)
 
 	// Handles group select
 	bot.Handle(tele.OnCallback, func(c tele.Context) error {
@@ -59,6 +61,7 @@ func (b *Bot) Start() {
 	})
 
 	bot.Handle(&btnDaily, b.handleGetDaily)
+	bot.Handle(&btnNextDaily, b.handleGetNextDaily)
 	bot.Handle(&btnWeekly, b.handleGetWeekly)
 
 	bot.Start()
@@ -77,7 +80,21 @@ func (b *Bot) handleGetDaily(c tele.Context) error {
 		return c.Send("Произошла ошибка, попробуйте позже")
 	}
 
-	// log.Print(daily)
+	return c.Send(&daily)
+}
+
+func (b *Bot) handleGetNextDaily(c tele.Context) error {
+	day, weekType := b.current.NowWithOffset(1)
+	slug, err := b.storage.GetSlug(c.Sender().ID)
+	if err != nil {
+		log.Println("Cant read slug from db:", err.Error())
+		return c.Send("Расписание для вас в данный момент недоступно, вероятно вы не выбрали группу")
+	}
+	daily, err := schedule.GetDaily(slug, day, weekType)
+	if err != nil {
+		log.Println("Cant get daily from backend: ", err.Error())
+		return c.Send("Произошла ошибка, попробуйте позже")
+	}
 
 	return c.Send(&daily)
 }

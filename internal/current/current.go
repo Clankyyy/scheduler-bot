@@ -7,7 +7,8 @@ import (
 )
 
 type Currenter interface {
-	Now() (string, string)
+	Now() (day string, weekType string)
+	NowWithOffset(days int) (string, string)
 }
 
 type OSCurrenter struct {
@@ -24,12 +25,16 @@ func NewOSCurrenter(shiftWeek bool) *OSCurrenter {
 	return &osc
 }
 
-func (osc OSCurrenter) Now() (string, string) {
-	return osc.day(), osc.weekKind()
+func (osc OSCurrenter) Now() (day string, weekType string) {
+	return osc.Day(0), osc.WeekKind(0)
 }
 
-func (osc OSCurrenter) weekKind() string {
-	_, week := time.Now().ISOWeek()
+func (osc OSCurrenter) NowWithOffset(days int) (string, string) {
+	return osc.Day(days), osc.WeekKind(days)
+}
+
+func (osc OSCurrenter) WeekKind(offsetDays int) string {
+	_, week := time.Now().AddDate(0, 0, offsetDays).ISOWeek()
 
 	var isEven bool
 	if week%2 == 0 {
@@ -48,7 +53,7 @@ func (osc OSCurrenter) weekKind() string {
 	return "odd"
 }
 
-func (osc OSCurrenter) day() string {
-	day := time.Now().Weekday()
+func (osc OSCurrenter) Day(offsetDays int) string {
+	day := time.Now().AddDate(0, 0, offsetDays).Weekday()
 	return strings.ToLower(day.String())
 }
